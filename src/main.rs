@@ -1,7 +1,7 @@
 use clap::{Parser, Subcommand, ValueEnum};
 use rand::distr::Uniform;
 use rand::prelude::*;
-use std::fmt::Debug;
+use sorting::{bubble_sort, merge_sort};
 use std::fs::File;
 use std::io::{BufWriter, Write};
 
@@ -62,7 +62,9 @@ fn generate(size: usize) {
 }
 
 fn load_numbers_from_file(filename: &str) -> Vec<usize> {
-    let contents = std::fs::read_to_string(filename).expect("Unable to read file");
+    let contents = std::fs::read_to_string(filename).expect(
+        "Unable to read file. You may need to generate data first. Run `sorting generate`!",
+    );
     let numbers: Vec<usize> = contents
         .split_whitespace()
         .map(|s| s.parse().expect("Unable to parse number"))
@@ -75,141 +77,5 @@ fn main() {
     match command {
         Commands::Sort(args) => sort(args),
         Commands::Generate => generate(100000),
-    }
-}
-
-fn bubble_sort<T: Ord>(l: &mut [T]) {
-    let n = l.len();
-    if n == 0 {
-        return;
-    }
-    let mut swapped: bool = true;
-    while swapped {
-        swapped = false;
-        for i in 0..n - 1 {
-            if l[i] > l[i + 1] {
-                swapped = true;
-                l.swap(i, i + 1);
-            }
-        }
-    }
-}
-
-/// Function receives index of two increasing subarrays
-/// and merge them in order
-fn merge<T: Ord + Copy + Debug>(l: &mut [T], mid: usize) {
-    let mut work: Vec<T> = Vec::new();
-    let mut left = 0;
-    let mut right = mid;
-    while work.len() < l.len() {
-        if l[left] <= l[right] {
-            work.push(l[left]);
-            left += 1;
-        } else {
-            work.push(l[right]);
-            right += 1;
-        }
-        if left >= mid {
-            work.extend_from_slice(&l[right..]);
-        }
-        if right >= l.len() {
-            work.extend_from_slice(&l[left..mid]);
-        }
-    }
-    l.copy_from_slice(&work);
-}
-
-fn merge_sort<T: Ord + Copy + Debug>(l: &mut [T]) {
-    if l.len() <= 1 {
-        return;
-    }
-    let m = l.len() / 2;
-    merge_sort(&mut l[..m]);
-    merge_sort(&mut l[m..]);
-    merge(l, m);
-}
-
-type SortFn<T> = fn(&mut [T]);
-
-fn test_sort_basic(sort_fn: SortFn<i32>) {
-    let mut data = vec![5, 3, 8, 4, 2];
-    sort_fn(&mut data);
-    assert_eq!(data, vec![2, 3, 4, 5, 8]);
-}
-
-fn test_sort_already_sorted(sort_fn: SortFn<i32>) {
-    let mut data = vec![1, 2, 3, 4, 5];
-    sort_fn(&mut data);
-    assert_eq!(data, vec![1, 2, 3, 4, 5]);
-}
-
-fn test_sort_reverse_sorted(sort_fn: SortFn<i32>) {
-    let mut data = vec![9, 7, 5, 3, 1];
-    sort_fn(&mut data);
-    assert_eq!(data, vec![1, 3, 5, 7, 9]);
-}
-
-fn test_sort_with_duplicates(sort_fn: SortFn<i32>) {
-    let mut data = vec![4, 2, 4, 1, 3, 2];
-    sort_fn(&mut data);
-    assert_eq!(data, vec![1, 2, 2, 3, 4, 4]);
-}
-
-fn test_sort_empty(sort_fn: SortFn<i32>) {
-    let mut data: Vec<i32> = vec![];
-    sort_fn(&mut data);
-    assert_eq!(data, vec![]);
-}
-
-fn test_sort_single_element(sort_fn: SortFn<i32>) {
-    let mut data = vec![42];
-    sort_fn(&mut data);
-    assert_eq!(data, vec![42]);
-}
-
-macro_rules! generate_sort_tests {
-    ($modname:ident, $sortfn:ident) => {
-        #[cfg(test)]
-        mod $modname {
-            use super::*;
-            #[test]
-            fn basic() {
-                super::test_sort_basic($sortfn);
-            }
-            #[test]
-            fn already_sorted() {
-                super::test_sort_already_sorted($sortfn);
-            }
-            #[test]
-            fn reverse_sorted() {
-                super::test_sort_reverse_sorted($sortfn);
-            }
-            #[test]
-            fn with_duplicates() {
-                super::test_sort_with_duplicates($sortfn);
-            }
-            #[test]
-            fn empty() {
-                super::test_sort_empty($sortfn);
-            }
-            #[test]
-            fn single_element() {
-                super::test_sort_single_element($sortfn);
-            }
-        }
-    };
-}
-
-generate_sort_tests!(bubble_sort_tests, bubble_sort);
-generate_sort_tests!(merge_sort_tests, merge_sort);
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_merge() {
-        let mut data = vec![1, 3, 2, 4, 8];
-        merge(&mut data, 2);
-        assert_eq!(data, vec![1, 2, 3, 4, 8]);
     }
 }

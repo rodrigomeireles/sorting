@@ -3,6 +3,14 @@ name = "sorting"
 version = "0.1.0"
 edition = "2024"
 
+[lib]
+name = "sorting"
+path = "src/lib.rs"
+
+[[bin]]
+name = "sorting"
+path = "src/main.rs"
+
 [dependencies]
 clap = { version = "4.5.51", features = ["derive"] }
 rand = "0.9.2"
