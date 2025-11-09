@@ -1,7 +1,81 @@
+use clap::{Parser, Subcommand, ValueEnum};
+use rand::distr::Uniform;
+use rand::prelude::*;
 use std::fmt::Debug;
+use std::fs::File;
+use std::io::{BufWriter, Write};
+
+#[derive(Clone, ValueEnum)]
+enum Algorithms {
+    Bubble,
+    Merge,
+}
+
+#[derive(Parser)]
+#[command(version, about, long_about = None)]
+#[command(propagate_version = true)]
+struct Cli {
+    #[command(subcommand)]
+    command: Commands,
+}
+
+#[derive(Subcommand)]
+#[command(version, about, long_about = None)]
+enum Commands {
+    Sort(SortArgs),
+    Generate,
+}
+
+#[derive(Parser)]
+#[command(version, about, long_about = None)]
+struct SortArgs {
+    /// Name of the sorting algo to run
+    #[arg(short, long)]
+    algorithm: Algorithms,
+}
+
+fn sort(args: SortArgs) {
+    let mut l: Vec<usize> = load_numbers_from_file("data.txt");
+    match args.algorithm {
+        Algorithms::Bubble => bubble_sort(&mut l),
+        Algorithms::Merge => merge_sort(&mut l),
+    }
+    println!("Finished sorting!");
+}
+
+/// Function to generate a list of random integers
+/// of given size and save them to a file.
+fn generate(size: usize) {
+    let rng = rand::rng();
+    let uniform: Uniform<usize> = Uniform::try_from(0..1000).unwrap();
+    let data_iter: std::iter::Take<rand::distr::Iter<Uniform<usize>, ThreadRng, usize>> =
+        uniform.sample_iter(rng).take(size);
+    // Creates a file and iteratively writes to a buffered writer
+    let file = std::fs::File::create("data.txt").expect("Unable to create file");
+    let mut writer: BufWriter<File> = std::io::BufWriter::new(file);
+    for number in data_iter {
+        writer
+            .write_all(format!("{} ", number).as_bytes())
+            .expect("Unable to write data");
+    }
+    println!("Generated {} random integers in file data.txt", size);
+}
+
+fn load_numbers_from_file(filename: &str) -> Vec<usize> {
+    let contents = std::fs::read_to_string(filename).expect("Unable to read file");
+    let numbers: Vec<usize> = contents
+        .split_whitespace()
+        .map(|s| s.parse().expect("Unable to parse number"))
+        .collect();
+    numbers
+}
 
 fn main() {
-    println!("Hello, world!");
+    let command = Cli::parse().command;
+    match command {
+        Commands::Sort(args) => sort(args),
+        Commands::Generate => generate(100000),
+    }
 }
 
 fn bubble_sort<T: Ord>(l: &mut [T]) {
@@ -13,7 +87,7 @@ fn bubble_sort<T: Ord>(l: &mut [T]) {
     while swapped {
         swapped = false;
         for i in 0..n - 1 {
-            if l[i].cmp(&l[i + 1]) == std::cmp::Ordering::Greater {
+            if l[i] > l[i + 1] {
                 swapped = true;
                 l.swap(i, i + 1);
             }
@@ -21,30 +95,25 @@ fn bubble_sort<T: Ord>(l: &mut [T]) {
     }
 }
 
-// Function receives index of two increasing subarrays
-// And merge them in order
+/// Function receives index of two increasing subarrays
+/// and merge them in order
 fn merge<T: Ord + Copy + Debug>(l: &mut [T], mid: usize) {
     let mut work: Vec<T> = Vec::new();
     let mut left = 0;
     let mut right = mid;
     while work.len() < l.len() {
+        if l[left] <= l[right] {
+            work.push(l[left]);
+            left += 1;
+        } else {
+            work.push(l[right]);
+            right += 1;
+        }
         if left >= mid {
             work.extend_from_slice(&l[right..]);
-            break;
         }
         if right >= l.len() {
             work.extend_from_slice(&l[left..mid]);
-            break;
-        }
-        match l[left].cmp(&l[right]) {
-            std::cmp::Ordering::Less | std::cmp::Ordering::Equal => {
-                work.push(l[left]);
-                left += 1;
-            }
-            std::cmp::Ordering::Greater => {
-                work.push(l[right]);
-                right += 1;
-            }
         }
     }
     l.copy_from_slice(&work);
@@ -100,6 +169,7 @@ fn test_sort_single_element(sort_fn: SortFn<i32>) {
 
 macro_rules! generate_sort_tests {
     ($modname:ident, $sortfn:ident) => {
+        #[cfg(test)]
         mod $modname {
             use super::*;
             #[test]
@@ -130,9 +200,9 @@ macro_rules! generate_sort_tests {
     };
 }
 
-#[cfg(test)]
 generate_sort_tests!(bubble_sort_tests, bubble_sort);
 generate_sort_tests!(merge_sort_tests, merge_sort);
+#[cfg(test)]
 mod tests {
     use super::*;
 
